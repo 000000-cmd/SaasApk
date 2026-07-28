@@ -1,0 +1,46 @@
+name: saas_app
+description: App móvil del SaaS de gestión de locales (dueño + empleados).
+publish_to: "none"
+version: 1.0.3+4
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Estado (reactivo, modular) — equivalente móvil a los signals del front web.
+  flutter_riverpod: ^2.5.1
+  # Ruteo declarativo con guards (auth + rol).
+  go_router: ^14.2.0
+  # HTTP con interceptores (JWT, refresh, errores) — espeja la cadena del front web.
+  dio: ^5.5.0
+  # Almacenamiento seguro de tokens (Keychain / Keystore).
+  flutter_secure_storage: ^9.2.2
+  # Huella / biometría del dispositivo (si el equipo lo permite).
+  local_auth: ^2.3.0
+  # Auto-actualización del APK: descarga a temp, verificación e instalador.
+  path_provider: ^2.1.4
+  open_filex: ^4.5.0
+  crypto: ^3.0.5
+  # Mascota ORB (misma .riv y estándar que la web: ViewModel typing/loading +
+  # triggers correct/wrong/jump sobre "State Machine 1").
+  rive: ^0.14.9
+  google_fonts: ^8.2.0
+  # Localización de Material (selector de fecha en español) y formateo de fechas.
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    # La mascota ORB (misma .riv que la web en public/mascot/).
+    - assets/mascot/
