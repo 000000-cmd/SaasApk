@@ -2,17 +2,17 @@ import 'package:flutter/widgets.dart';
 
 /// Tokens de espaciado y radios. Usar en vez de números mágicos.
 ///
-/// El sistema "Luminous Aura" es de formas ORGÁNICAS: las tarjetas usan 24px
-/// como mínimo (imitan la curvatura del orb) y las acciones primarias son
-/// píldoras completas. Los radios chicos quedan solo para inputs y chips.
+/// El sistema **Vertex** es de formas "Structured Modern": base de 8px, que deja
+/// los elementos aproximables pero conserva la línea precisa de una herramienta
+/// profesional. El círculo se reserva para avatares e indicadores de estado —
+/// botones y campos NUNCA son píldoras.
 class AppSpacing {
   AppSpacing._();
 
-  /// Aire que hay que dejar al final de una lista para que su último elemento
-  /// no quede debajo de la barra inferior flotante ni de la barra de gestos
-  /// del teléfono. La barra mide 68 y va separada del borde.
-  static double bottomForNavBar(BuildContext context) =>
-      68 + xxl + MediaQuery.viewPaddingOf(context).bottom;
+  /// Aire al final de una lista. La barra inferior va ANCLADA al borde, así que
+  /// el Scaffold ya le reserva su alto y el de la barra de gestos: aquí sólo
+  /// queda el respiro visual para que el último elemento no toque el borde.
+  static double bottomForNavBar(BuildContext context) => xxl;
 
   // Ritmo base de 8px; los cortes de sección respiran mucho más (32-64px).
   static const double xs = 4;
@@ -27,14 +27,15 @@ class AppSpacing {
   static const double marginMobile = 24;
 
   // ---- Radios ----
-  static const double radiusSm = 8;
-  /// Inputs: 12px, equilibrio entre el dato duro y la fluidez de la marca.
-  static const double radiusMd = 12;
-  static const double radiusLg = 16;
-  /// Tarjetas: mínimo 24px por mandato del sistema de diseño.
-  static const double radiusCard = 24;
-  /// Contenedores grandes / hojas: 28-32px.
-  static const double radiusXl = 28;
-  static const double radiusXxl = 32;
+  static const double radiusSm = 4;
+  /// Base del sistema: botones, campos y chips.
+  static const double radiusMd = 8;
+  static const double radiusLg = 12;
+  /// Tarjetas: 12px — esquina suave sin perder la silueta arquitectónica.
+  static const double radiusCard = 12;
+  /// Contenedores grandes.
+  static const double radiusXl = 16;
+  /// Hojas inferiores: el único sitio donde el radio se abre de verdad.
+  static const double radiusXxl = 20;
   static const double radiusFull = 999;
 }

@@ -1,52 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Escala tipográfica del sistema "Luminous Aura" (idéntica a la web).
+/// Escala tipográfica del sistema **Vertex** (idéntica a la web).
 ///
 /// Doble familia a propósito:
-///  - **Bricolage Grotesque** en titulares: sus curvas irregulares pero
-///    refinadas espejan la fluidez del orb y dan el aire editorial.
-///  - **Hanken Grotesk** en cuerpo y etiquetas: sans contemporánea, legible en
-///    pantallas densas de datos.
+///  - **Manrope** en titulares: geométrica y ligeramente condensada, da el aire
+///    premium y estructurado de una herramienta profesional.
+///  - **Inter** en cuerpo, etiquetas y captura de datos: legibilidad excepcional
+///    en pantallas densas de cifras.
 ///
-/// Los display llevan tracking negativo (presencia); las etiquetas pequeñas
-/// van con tracking positivo (claridad).
+/// Los titulares llevan tracking negativo (presencia); las etiquetas pequeñas
+/// van con tracking positivo y peso alto (visibles de un vistazo).
 class AppTypography {
   AppTypography._();
 
-  static TextStyle displayXl({Color? color}) => GoogleFonts.bricolageGrotesque(
-        fontSize: 40, height: 48 / 40, fontWeight: FontWeight.w700, letterSpacing: -0.02 * 40, color: color,
+  static TextStyle displayXl({Color? color}) => GoogleFonts.manrope(
+        fontSize: 40, height: 48 / 40, fontWeight: FontWeight.w800, letterSpacing: -0.02 * 40, color: color,
       );
 
-  static TextStyle headlineLg({Color? color}) => GoogleFonts.bricolageGrotesque(
-        fontSize: 28, height: 36 / 28, fontWeight: FontWeight.w600, color: color,
+  static TextStyle headlineLg({Color? color}) => GoogleFonts.manrope(
+        fontSize: 28, height: 36 / 28, fontWeight: FontWeight.w700, letterSpacing: -0.01 * 28, color: color,
       );
 
-  static TextStyle headlineMd({Color? color}) => GoogleFonts.bricolageGrotesque(
-        fontSize: 22, height: 30 / 22, fontWeight: FontWeight.w600, color: color,
+  static TextStyle headlineMd({Color? color}) => GoogleFonts.manrope(
+        fontSize: 22, height: 30 / 22, fontWeight: FontWeight.w700, color: color,
       );
 
-  static TextStyle titleMd({Color? color}) => GoogleFonts.bricolageGrotesque(
-        fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600, color: color,
+  static TextStyle titleMd({Color? color}) => GoogleFonts.manrope(
+        fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w700, color: color,
       );
 
-  static TextStyle bodyLg({Color? color}) => GoogleFonts.hankenGrotesk(
+  static TextStyle bodyLg({Color? color}) => GoogleFonts.inter(
         fontSize: 18, height: 28 / 18, fontWeight: FontWeight.w400, color: color,
       );
 
-  static TextStyle bodyMd({Color? color}) => GoogleFonts.hankenGrotesk(
+  static TextStyle bodyMd({Color? color}) => GoogleFonts.inter(
         fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w400, color: color,
       );
 
-  static TextStyle bodySm({Color? color}) => GoogleFonts.hankenGrotesk(
+  static TextStyle bodySm({Color? color}) => GoogleFonts.inter(
         fontSize: 14, height: 20 / 14, fontWeight: FontWeight.w400, color: color,
       );
 
-  static TextStyle labelMd({Color? color}) => GoogleFonts.hankenGrotesk(
-        fontSize: 14, height: 20 / 14, fontWeight: FontWeight.w500, letterSpacing: 0.05 * 14, color: color,
+  static TextStyle labelMd({Color? color}) => GoogleFonts.inter(
+        fontSize: 14, height: 16 / 14, fontWeight: FontWeight.w600, letterSpacing: 0.02 * 14, color: color,
       );
 
-  static TextStyle labelSm({Color? color}) => GoogleFonts.hankenGrotesk(
-        fontSize: 11, height: 16 / 11, fontWeight: FontWeight.w700, letterSpacing: 0.08 * 11, color: color,
+  static TextStyle labelSm({Color? color}) => GoogleFonts.inter(
+        fontSize: 12, height: 14 / 12, fontWeight: FontWeight.w700, letterSpacing: 0.05 * 12, color: color,
       );
 }

@@ -8,8 +8,8 @@ class AppInfo {
   /// OJO: tiene que ir a la par de `version:` en pubspec.yaml. Esta es la que
   /// compara el gate contra la constante VERAPP; la del pubspec es la que ve
   /// Android. Si se tocan por separado, el APK se bloquea a sí mismo.
-  static const String version = '1.0.3';
+  static const String version = '1.0.6';
 
   /// Nombre de marca que se muestra en la app (login, encabezados).
-  static const String appName = 'Luminous Aura';
+  static const String appName = 'Moda ERP';
 }

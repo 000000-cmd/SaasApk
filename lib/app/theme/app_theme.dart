@@ -4,7 +4,7 @@ import 'package:saas_app/app/theme/app_colors.dart';
 import 'package:saas_app/app/theme/app_spacing.dart';
 import 'package:saas_app/app/theme/app_typography.dart';
 
-/// ThemeData light/dark del sistema "Luminous Aura". La UI usa estos temas + los
+/// ThemeData light/dark del sistema **Vertex**. La UI usa estos temas + los
 /// componentes de `shared/widgets`; evitar colores hardcodeados en pantallas.
 ///
 /// El ColorScheme se arma con los tokens EXPLÍCITOS del sistema (no con
@@ -77,21 +77,25 @@ class AppTheme {
 
       dividerTheme: DividerThemeData(color: scheme.outlineVariant, thickness: 1, space: 1),
 
-      // Tarjetas: 24px+ y definidas por sombra tintada, no por borde.
+      // Tarjetas: superficie sólida + borde de 1px, SIN sombra en reposo.
+      // La profundidad la da la capa tonal, no el difuminado.
       cardTheme: CardThemeData(
         color: cardSurface,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusCard)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
+          side: BorderSide(color: scheme.outlineVariant),
+        ),
       ),
 
-      // Acción primaria: píldora completa (contrasta con la retícula).
+      // Acción primaria: relleno del acento con 8px de radio (nada de píldoras).
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
           minimumSize: const Size.fromHeight(52),
-          shape: const StadiumBorder(),
+          shape: _buttonShape,
           textStyle: AppTypography.labelMd(),
           elevation: 0,
         ),
@@ -101,18 +105,18 @@ class AppTheme {
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
           minimumSize: const Size.fromHeight(52),
-          shape: const StadiumBorder(),
+          shape: _buttonShape,
           textStyle: AppTypography.labelMd(),
           elevation: 0,
         ),
       ),
-      // Secundaria: borde morado sobre transparente.
+      // Secundaria: el sistema la define como un borde de 1px, no un relleno.
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: scheme.primary,
+          foregroundColor: onSurface,
           minimumSize: const Size.fromHeight(52),
-          shape: const StadiumBorder(),
-          side: BorderSide(color: scheme.primary.withValues(alpha: 0.4), width: 1.5),
+          shape: _buttonShape,
+          side: BorderSide(color: scheme.outlineVariant),
           textStyle: AppTypography.labelMd(),
         ),
       ),
@@ -123,7 +127,7 @@ class AppTheme {
         ),
       ),
 
-      // Inputs: 12px, trazo suave que se vuelve morado al enfocar.
+      // Campos: 8px y trazo de 1px que vira al acento al enfocar.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: isDark ? scheme.surfaceContainerLow : cardSurface,
@@ -140,13 +144,14 @@ class AppTheme {
         focusedErrorBorder: _inputBorder(scheme.error, width: 2),
       ),
 
-      // Chips de estado: píldora, fondo lavanda muy claro, texto morado.
+      // Chips de estado: "soft fill" del sistema — relleno tenue del color
+      // semántico y texto al 100 %. Rectángulo de esquina suave, no píldora.
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.primaryFixed,
         labelStyle: AppTypography.labelSm(color: AppColors.onPrimaryFixedVariant),
         side: BorderSide.none,
-        shape: const StadiumBorder(),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
       ),
 
       // Hojas y diálogos: esquinas muy redondeadas (curvatura del orb).
@@ -179,14 +184,18 @@ class AppTheme {
     );
   }
 
+  /// Silueta común de los botones: 8px, la base arquitectónica del sistema.
+  static final RoundedRectangleBorder _buttonShape =
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMd));
+
   static OutlineInputBorder _inputBorder(Color color, {double width = 1}) => OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         borderSide: BorderSide(color: color, width: width),
       );
 
-  /// Titulares en Bricolage, cuerpo y etiquetas en Hanken.
+  /// Titulares en Manrope, cuerpo y etiquetas en Inter.
   static TextTheme _textTheme(Color onSurface, Color onSurfaceVariant) {
-    final TextTheme base = GoogleFonts.hankenGroteskTextTheme();
+    final TextTheme base = GoogleFonts.interTextTheme();
     return base.copyWith(
       displayLarge: AppTypography.displayXl(color: onSurface),
       displayMedium: AppTypography.displayXl(color: onSurface),
