@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saas_app/app/theme/app_colors.dart';
 import 'package:saas_app/app/theme/app_spacing.dart';
 import 'package:saas_app/core/auth/auth_controller.dart';
-import 'package:saas_app/features/appointments/appointments_screen.dart';
 import 'package:saas_app/features/home/dashboard_screen.dart';
+import 'package:saas_app/features/more/more_screen.dart';
+import 'package:saas_app/features/services/services_screen.dart';
 import 'package:saas_app/core/auth/auth_models.dart';
 import 'package:saas_app/core/menu/menu_controller.dart';
 import 'package:saas_app/core/menu/menu_models.dart';
@@ -15,11 +15,11 @@ import 'package:saas_app/features/owner/owner_settlements_screen.dart';
 import 'package:saas_app/features/owner/owner_team_screen.dart';
 import 'package:saas_app/features/payments/payments_screen.dart';
 import 'package:saas_app/features/profile/profile_screen.dart';
-import 'package:saas_app/shared/widgets/orb_nav_bar.dart';
+import 'package:saas_app/shared/widgets/app_nav_bar.dart';
 
-/// Shell principal: SIN drawer y SIN AppBar — la app vive en 4 tabs de una
-/// navbar de footer (Inicio / Citas / Pagos / Perfil). La razón de entrar es
-/// ver el saldo, así que Inicio abre con él; lo demás queda a un toque.
+/// Shell principal: SIN drawer y SIN AppBar — la app vive en 4 pestañas de una
+/// barra inferior (Inicio / Servicios / Movimientos / Más para el colaborador).
+/// La razón de entrar es ver el saldo, así que Inicio abre con él.
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
@@ -93,10 +93,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final int index = _index.clamp(0, tabs.length - 1);
 
     return PopScope(
-      // El "atras" del telefono NO cierra la app. Desde una pestaña interna
-      // vuelve a la primera, y desde la primera hay que confirmarlo pulsando
-      // dos veces: salirse sin querer estando dentro es de lo mas molesto que
-      // le puede pasar a alguien que solo queria retroceder una pantalla.
+      // El "atras" del telefono NUNCA cierra la app de golpe. Desde cualquier
+      // pestaña vuelve al inicio —que es el punto de partida y desde donde se
+      // sale a todo lo demas— y solo estando YA en el inicio pregunta si se
+      // quiere cerrar sesion. Las pantallas apiladas (bandeja, cuentas, perfil)
+      // no llegan aqui: las cierra el Navigator, que es lo esperado.
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
@@ -104,17 +105,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           go(0);
           return;
         }
-        _confirmExit();
+        _confirmLogout();
       },
       child: Scaffold(
-        // La barra flota ENCIMA del contenido: sin `extendBody` el Scaffold le
-        // reserva su alto y quedaria una franja muerta bajo el desplazamiento.
-        extendBody: true,
+        // La barra va anclada al borde: el Scaffold le reserva su alto y el
+        // contenido termina justo encima, sin quedar tapado.
         body: IndexedStack(
           index: index,
           children: [for (final t in tabs) t.build(go)],
         ),
-        bottomNavigationBar: OrbNavBar(
+        bottomNavigationBar: AppNavBar(
           index: index,
           onTap: go,
           items: [for (final t in tabs) t.item],
@@ -123,54 +123,58 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
-  DateTime? _lastBackPress;
-
-  /// Doble "atras" para salir, con aviso. Es el gesto que ya conoce cualquiera
-  /// que use Android; el aviso existe para que el primer toque no parezca que
-  /// la app se quedo colgada.
-  void _confirmExit() {
-    final DateTime now = DateTime.now();
-    final bool recent =
-        _lastBackPress != null && now.difference(_lastBackPress!) < const Duration(seconds: 2);
-    if (recent) {
-      SystemNavigator.pop();
-      return;
-    }
-    _lastBackPress = now;
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: const Text('Vuelve a tocar atrás para salir'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            left: AppSpacing.lg,
-            right: AppSpacing.lg,
-            // Por encima de la barra flotante, no debajo.
-            bottom: MediaQuery.viewPaddingOf(context).bottom + 88,
+  /// Atras estando en el inicio: preguntar si cerrar sesion.
+  ///
+  /// Antes era el doble toque para SALIR de la app, que no vaciaba la sesion:
+  /// la siguiente persona que abriera el telefono entraba directa a la cuenta
+  /// anterior. Volver a entrar cuesta la huella; volver a la cuenta de otro no
+  /// deberia costar nada menos que decir que si.
+  Future<void> _confirmLogout() async {
+    final bool? salir = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
+        title: const Text('¿Cerrar sesión?'),
+        content: const Text('Tendrás que volver a entrar con tu usuario y contraseña.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Quedarme')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Cerrar sesión'),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
-        ),
-      );
+        ],
+      ),
+    );
+    if (salir == true) await ref.read(authControllerProvider.notifier).logout();
   }
 
   /// Traduce el arbol de menus a pestañas.
+  ///
+  /// SOLO para el DUEÑO. El empleado lleva sus cuatro pestañas fijas y no pasa
+  /// por aqui, y la razon es un fallo real: el arbol de menus describe el
+  /// SIDEBAR DE LA WEB, no el APK. Al empleado le llegan dos entradas —"Panel"
+  /// (/tenant/dashboard) y "Mi perfil" (/tenant/profile)— que son sus pantallas
+  /// del navegador. Como 'dashboard' existia en el mapa y apuntaba al panel del
+  /// DUEÑO, un empleado entraba y se encontraba con los saldos de todo el
+  /// equipo y el boton de liquidar. Ademas perdia Servicios y Movimientos, que
+  /// no tienen menu porque solo existen en el telefono.
   ///
   /// Si el back no responde o ninguna ruta tiene pantalla conocida, se cae a
   /// las pestañas de siempre: quedarse sin navegacion por un fallo de red seria
   /// mucho peor que enseñar un menu algo desactualizado.
   List<_Tab> _tabsFrom(List<MenuNode> tree, {required bool isOwner}) {
-    final fallback = isOwner ? _ownerFallback : _employeeFallback;
-    if (tree.isEmpty) return fallback;
+    if (!isOwner) return _employeeFallback;
+    if (tree.isEmpty) return _ownerFallback;
 
+    final fallback = _ownerFallback;
     final tabs = <_Tab>[];
     for (final node in navigableLeaves(tree)) {
-      final build = _screens[node.routeKey];
+      final build = _ownerScreens[node.routeKey];
       if (build == null) continue; // menu sin pantalla en el APK: no se pinta
       tabs.add(_Tab(
         key: node.routeKey,
-        item: OrbNavItem(
+        item: AppNavItem(
           icon: menuIconFor(node.icon),
           activeIcon: menuIconFor(node.icon),
           label: node.name,
@@ -195,20 +199,26 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     return tabs;
   }
 
-  /// Que pantalla abre cada ruta. Es lo unico que sigue en codigo: la pantalla
-  /// es un widget y alguien tiene que decir cual. QUE menus hay, como se
-  /// llaman y en que orden lo decide la configuracion.
-  static final Map<String, Widget Function(void Function(int))> _screens = {
+  /// Que pantalla abre cada ruta DEL DUEÑO. Es lo unico que sigue en codigo: la
+  /// pantalla es un widget y alguien tiene que decir cual. QUE menus hay, como
+  /// se llaman y en que orden lo decide la configuracion.
+  ///
+  /// Va con el rol en el nombre a proposito. Un mapa unico compartido por los
+  /// dos roles fue exactamente el fallo: bastaba que la configuracion del
+  /// empleado tuviera una ruta con el mismo ultimo tramo para servirle una
+  /// pantalla del dueño.
+  static final Map<String, Widget Function(void Function(int))> _ownerScreens = {
     'dashboard': (go) => OwnerDashboardScreen(onNavigate: go),
     'liquidaciones': (_) => const OwnerSettlementsScreen(),
     'empleados': (_) => const OwnerTeamScreen(),
     'profile': (_) => const ProfileScreen(),
-    'citas': (_) => const AppointmentsScreen(),
-    'pagos': (_) => const PaymentsScreen(),
   };
 
   /// Rutas que se ven pero todavia no operan (candado en la pestaña).
-  static const Set<String> _locked = {'citas'};
+  ///
+  /// Vacio: la que estaba bloqueada era Citas, y ahora la agenda del empleado
+  /// existe de verdad dentro de Servicios.
+  static const Set<String> _locked = {};
 
   // ── Reserva ────────────────────────────────────────────────────────────────
   // Lo que se pinta cuando el arbol de menus no ha llegado (arranque en frio,
@@ -216,46 +226,65 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   static final List<_Tab> _ownerFallback = [
     _Tab(
-      item: const OrbNavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, label: 'Panel'),
+      item: const AppNavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, label: 'Panel'),
       build: (go) => OwnerDashboardScreen(onNavigate: go),
     ),
     _Tab(
-      item: const OrbNavItem(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded, label: 'Liquidar'),
+      item: const AppNavItem(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded, label: 'Liquidar'),
       build: (_) => const OwnerSettlementsScreen(),
     ),
     _Tab(
-      item: const OrbNavItem(icon: Icons.groups_outlined, activeIcon: Icons.groups_rounded, label: 'Equipo'),
+      item: const AppNavItem(icon: Icons.groups_outlined, activeIcon: Icons.groups_rounded, label: 'Equipo'),
       build: (_) => const OwnerTeamScreen(),
     ),
     _Tab(
       key: 'profile',
-      item: const OrbNavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Perfil'),
+      item: const AppNavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Perfil'),
       build: (_) => const ProfileScreen(),
     ),
   ];
 
+  /// Las cuatro del empleado, en el orden en que las necesita:
+  ///
+  ///   Inicio      lo de hoy y su saldo — la razón de abrir la app;
+  ///   Servicios   su trabajo: la agenda y todo lo prestado, con su estado;
+  ///   Movimientos su plata: lo que se le abonó y lo que se le consignó;
+  ///   Más         lo suyo: perfil, cuentas, notificaciones.
+  ///
+  /// Trabajo y plata van SEPARADOS a propósito. Mezclarlos es lo que hacía que
+  /// una pantalla tuviera citas, saldos y pagos a la vez y no se entendiera
+  /// ninguna de las tres.
   static final List<_Tab> _employeeFallback = [
     _Tab(
-      item: const OrbNavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Inicio'),
+      item: const AppNavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Inicio'),
       build: (go) => DashboardScreen(onNavigate: go),
     ),
     _Tab(
-      item: const OrbNavItem(
-        icon: Icons.calendar_today_outlined,
-        activeIcon: Icons.calendar_today_rounded,
-        label: 'Citas',
-        locked: true,
+      key: 'citas',
+      item: const AppNavItem(
+        icon: Icons.content_cut_outlined,
+        activeIcon: Icons.content_cut_rounded,
+        label: 'Servicios',
       ),
-      build: (_) => const AppointmentsScreen(),
+      build: (_) => const ServicesScreen(),
     ),
     _Tab(
-      item: const OrbNavItem(icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, label: 'Pagos'),
+      key: 'pagos',
+      item: const AppNavItem(
+        icon: Icons.swap_vert_rounded,
+        activeIcon: Icons.swap_vert_rounded,
+        label: 'Movimientos',
+      ),
       build: (_) => const PaymentsScreen(),
     ),
     _Tab(
       key: 'profile',
-      item: const OrbNavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Perfil'),
-      build: (_) => const ProfileScreen(),
+      item: const AppNavItem(
+        icon: Icons.grid_view_outlined,
+        activeIcon: Icons.grid_view_rounded,
+        label: 'Más',
+      ),
+      build: (_) => const MoreScreen(),
     ),
   ];
 }
@@ -267,6 +296,6 @@ class _Tab {
   /// Último tramo de la ruta ('profile', 'liquidaciones'). Identifica la
   /// pantalla sin depender de la etiqueta, que la configuración puede cambiar.
   final String key;
-  final OrbNavItem item;
+  final AppNavItem item;
   final Widget Function(void Function(int) go) build;
 }

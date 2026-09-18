@@ -146,12 +146,7 @@ class _PendingCard extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.xl),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.primary, AppColors.primaryContainer],
-            ),
-            boxShadow: AppElevation.glow,
+            color: AppColors.ink900,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

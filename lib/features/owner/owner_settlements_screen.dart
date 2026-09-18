@@ -38,13 +38,19 @@ class _OwnerSettlementsScreenState extends ConsumerState<OwnerSettlementsScreen>
       ref.invalidate(teamBalancesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Liquidación confirmada para $name')),
+          SnackBar(content: Text('Abonado al saldo de $name')),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo confirmar la liquidación')),
+          // El motivo mas comun no es un fallo tecnico: es que no hay nada
+          // aprobado. Decirlo evita que el dueño reintente cinco veces.
+          const SnackBar(
+            content: Text(
+              'No hay servicios aprobados por liquidar. Apruébalos desde la web y vuelve a intentar.',
+            ),
+          ),
         );
       }
     } finally {
@@ -56,9 +62,10 @@ class _OwnerSettlementsScreenState extends ConsumerState<OwnerSettlementsScreen>
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar y liquidar'),
+        title: const Text('Liquidar servicios'),
         content: Text(
-          'Se transferirán ${formatCOP(b.pending)} al saldo individual de $name. '
+          'Se abonará al saldo de $name la suma de sus servicios ya aprobados. '
+          'Liquidar NO le consigna el dinero: eso ocurre al dispersar la nómina. '
           'Esta operación es irreversible y queda registrada en la auditoría.',
         ),
         actions: [
@@ -162,12 +169,7 @@ class _TotalCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryContainer],
-        ),
-        boxShadow: AppElevation.glow,
+        color: AppColors.ink900,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,7 +267,7 @@ class _SettlementCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           AppButton(
-            label: 'Liberar comisión',
+            label: 'Abonar aprobado',
             icon: Icons.verified_outlined,
             size: AppButtonSize.sm,
             expanded: true,

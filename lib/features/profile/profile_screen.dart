@@ -80,14 +80,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Center(
             child: Container(
               padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.primary, AppColors.primaryContainer, AppColors.primaryFixedDim],
-                ),
-                boxShadow: AppElevation.glow,
+                color: AppColors.primary,
               ),
               child: CircleAvatar(
                 radius: 40,
