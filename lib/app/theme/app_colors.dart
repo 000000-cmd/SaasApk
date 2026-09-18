@@ -1,87 +1,116 @@
 import 'package:flutter/material.dart';
 
-/// Paleta del design system "Luminous Aura" (misma que la web tras el refactor).
+/// Paleta del design system **Vertex** de Moda ERP (la misma que la web).
 ///
-/// Los valores son los tokens Material-3 exactos del sistema de diseño: el
-/// morado de marca sale del orb de la mascota y manda en acciones, progreso y
-/// presencia. Las pantallas NO deben hardcodear colores: todo sale de aquí o
-/// del [ThemeData].
+/// Dos ejes de color, igual que en `styles.scss`:
+///  - **Tinta estructural** (Midnight Navy, matiz 266): superficies, bordes,
+///    texto y los bloques "autoritativos". Es el ancla neutral del sistema.
+///  - **Acento** (Electric Cerulean, matiz 238): lo interactivo — botones,
+///    enlaces, pestaña activa, progreso.
+///
+/// Los verdes/ámbar/rojos NO siguen al acento a propósito: verde-es-bueno y
+/// rojo-es-malo son convenciones, no marca.
+///
+/// Los valores salen de la misma rampa OKLCH que la web (ver
+/// `scratchpad/tokens.mjs`), convertidos a sRGB. Las pantallas NO deben
+/// hardcodear colores: todo sale de aquí o del [ThemeData].
 class AppColors {
   AppColors._();
 
-  // ---- Primary (morado de marca) ----
-  static const Color primary = Color(0xFF8204BE);
+  // ---- Acento del tenant (cerúleo por defecto) ----
+  static const Color primary = Color(0xFF0084D2);
   static const Color onPrimary = Color(0xFFFFFFFF);
-  static const Color primaryContainer = Color(0xFF9D34D9);
-  static const Color onPrimaryContainer = Color(0xFFFAE6FF);
-  static const Color primaryFixed = Color(0xFFF5D9FF);
-  static const Color primaryFixedDim = Color(0xFFE6B4FF);
-  static const Color onPrimaryFixed = Color(0xFF30004A);
-  static const Color onPrimaryFixedVariant = Color(0xFF7000A6);
-  static const Color inversePrimary = Color(0xFFE6B4FF);
-  static const Color surfaceTint = Color(0xFF8F21CB);
+  static const Color primaryDark = Color(0xFF006BB2);
+  static const Color primaryLight = Color(0xFF28A3E4);
+  static const Color primaryContainer = Color(0xFF131B2E);
+  static const Color onPrimaryContainer = Color(0xFF9BA5B9);
+  static const Color primaryFixed = Color(0xFFC5E9FF);
+  static const Color primaryFixedDim = Color(0xFF96CFF6);
+  static const Color onPrimaryFixed = Color(0xFF001D33);
+  static const Color onPrimaryFixedVariant = Color(0xFF004B6F);
+  static const Color inversePrimary = Color(0xFF68BBEF);
+  static const Color surfaceTint = Color(0xFF0084D2);
 
-  // ---- Secondary / tertiary (grafito + lavanda) ----
-  static const Color secondary = Color(0xFF5F5E64);
+  // ---- Tinta estructural (Midnight Navy) ----
+  // Constante entre claro y oscuro: es estructura, no superficie.
+  static const Color ink50 = Color(0xFFEEF2FA);
+  static const Color ink100 = Color(0xFFDDE3F1);
+  static const Color ink200 = Color(0xFFBFC7DA);
+  static const Color ink300 = Color(0xFF9BA5B9);
+  static const Color ink400 = Color(0xFF79839A);
+  static const Color ink500 = Color(0xFF545D73);
+  static const Color ink600 = Color(0xFF3B455B);
+  static const Color ink700 = Color(0xFF263046);
+  static const Color ink800 = Color(0xFF1B2338);
+  static const Color ink900 = Color(0xFF131B2E);
+  static const Color ink950 = Color(0xFF060B18);
+
+  // ---- Secundario / terciario ----
+  // `secondaryContainer` es el cerúleo eléctrico del sistema de diseño: se usa
+  // en rellenos brillantes sobre tinta (CTA del panel oscuro, barras de avance).
+  static const Color secondary = Color(0xFF006BB2);
   static const Color onSecondary = Color(0xFFFFFFFF);
-  static const Color secondaryContainer = Color(0xFFE1DEE5);
-  static const Color onSecondaryContainer = Color(0xFF636268);
-  static const Color secondaryFixed = Color(0xFFE4E1E8);
-  static const Color secondaryFixedDim = Color(0xFFC8C5CC);
-  static const Color onSecondaryFixed = Color(0xFF1B1B20);
-  static const Color onSecondaryFixedVariant = Color(0xFF47464C);
-  static const Color tertiary = Color(0xFF575062);
+  static const Color secondaryContainer = Color(0xFF3AB8FD);
+  static const Color onSecondaryContainer = Color(0xFF024565);
+  static const Color secondaryFixed = Color(0xFFC6E7FD);
+  static const Color secondaryFixedDim = Color(0xFF85CEFC);
+  static const Color onSecondaryFixed = Color(0xFF001D2E);
+  static const Color onSecondaryFixedVariant = Color(0xFF014A6D);
+  static const Color tertiary = Color(0xFF009465);
   static const Color onTertiary = Color(0xFFFFFFFF);
-  static const Color tertiaryContainer = Color(0xFF70687B);
-  static const Color onTertiaryContainer = Color(0xFFF4E9FF);
-  static const Color tertiaryFixed = Color(0xFFE9DEF5);
-  static const Color tertiaryFixedDim = Color(0xFFCDC2D9);
-  static const Color onTertiaryFixed = Color(0xFF1E1929);
-  static const Color onTertiaryFixedVariant = Color(0xFF4A4456);
+  static const Color tertiaryContainer = Color(0xFF002113);
+  static const Color onTertiaryContainer = Color(0xFF089667);
+  static const Color tertiaryFixed = Color(0xFF85F7C2);
+  static const Color tertiaryFixedDim = Color(0xFF4FDEA3);
+  static const Color onTertiaryFixed = Color(0xFF002113);
+  static const Color onTertiaryFixedVariant = Color(0xFF015337);
 
-  // ---- Superficies (light) ----
-  static const Color background = Color(0xFFF8F9FA);
-  static const Color onBackground = Color(0xFF191C1D);
-  static const Color surface = Color(0xFFF8F9FA);
-  static const Color surfaceBright = Color(0xFFF8F9FA);
-  static const Color surfaceDim = Color(0xFFD9DADB);
+  // ---- Superficies (claro) ----
+  static const Color background = Color(0xFFF8FAFD);
+  static const Color onBackground = Color(0xFF111A30);
+  static const Color surface = Color(0xFFF8FAFD);
+  static const Color surfaceBright = Color(0xFFF8FAFD);
+  static const Color surfaceDim = Color(0xFFCEDAF5);
   static const Color surfaceContainerLowest = Color(0xFFFFFFFF);
-  static const Color surfaceContainerLow = Color(0xFFF3F4F5);
-  static const Color surfaceContainer = Color(0xFFEDEEEF);
-  static const Color surfaceContainerHigh = Color(0xFFE7E8E9);
-  static const Color surfaceContainerHighest = Color(0xFFE1E3E4);
-  static const Color surfaceVariant = Color(0xFFE1E3E4);
-  static const Color onSurface = Color(0xFF191C1D);
-  static const Color onSurfaceVariant = Color(0xFF4E4353);
-  static const Color inverseSurface = Color(0xFF2E3132);
-  static const Color inverseOnSurface = Color(0xFFF0F1F2);
-  static const Color outline = Color(0xFF807384);
-  static const Color outlineVariant = Color(0xFFD1C1D5);
+  static const Color surfaceContainerLow = Color(0xFFF0F4FD);
+  static const Color surfaceContainer = Color(0xFFE7EEFB);
+  static const Color surfaceContainerHigh = Color(0xFFE0E8FA);
+  static const Color surfaceContainerHighest = Color(0xFFD9E3F9);
+  static const Color surfaceVariant = Color(0xFFD9E3F9);
+  static const Color onSurface = Color(0xFF111A30);
+  static const Color onSurfaceVariant = Color(0xFF434853);
+  static const Color inverseSurface = Color(0xFF263046);
+  static const Color inverseOnSurface = Color(0xFFEBF2FF);
+  static const Color outline = Color(0xFF737781);
+  static const Color outlineVariant = Color(0xFFCFD4E1);
 
-  // ---- Superficies (dark, estándar M3 sobre el mismo morado) ----
-  static const Color backgroundDark = Color(0xFF131215);
-  static const Color surfaceDarkTone = Color(0xFF131215);
-  static const Color surfaceContainerLowestDark = Color(0xFF0E0D10);
-  static const Color surfaceContainerLowDark = Color(0xFF1C1B1F);
-  static const Color surfaceContainerDark = Color(0xFF201F23);
-  static const Color surfaceContainerHighDark = Color(0xFF2B292E);
-  static const Color surfaceContainerHighestDark = Color(0xFF363438);
-  static const Color onSurfaceDark = Color(0xFFE6E1E6);
-  static const Color onSurfaceVariantDark = Color(0xFFCFC3D4);
-  static const Color outlineDark = Color(0xFF988E9C);
-  static const Color outlineVariantDark = Color(0xFF4A424E);
+  // ---- Superficies (oscuro) ----
+  // No es un gris neutro: es el mismo Midnight Navy, así el modo oscuro se lee
+  // como la misma marca y no como otra app.
+  static const Color backgroundDark = Color(0xFF090D17);
+  static const Color surfaceDarkTone = Color(0xFF090D17);
+  static const Color surfaceContainerLowestDark = Color(0xFF03060D);
+  static const Color surfaceContainerLowDark = Color(0xFF121723);
+  static const Color surfaceContainerDark = Color(0xFF181E2B);
+  static const Color surfaceContainerHighDark = Color(0xFF222938);
+  static const Color surfaceContainerHighestDark = Color(0xFF2E3546);
+  static const Color onSurfaceDark = Color(0xFFEEF2FA);
+  static const Color onSurfaceVariantDark = Color(0xFFAAB1C0);
+  static const Color outlineDark = Color(0xFF858C9D);
+  static const Color outlineVariantDark = Color(0xFF2D3547);
 
   // ---- Estados ----
-  static const Color error = Color(0xFFBA1A1A);
+  static const Color error = Color(0xFFBA181C);
   static const Color onError = Color(0xFFFFFFFF);
-  static const Color errorContainer = Color(0xFFFFDAD6);
-  static const Color onErrorContainer = Color(0xFF93000A);
-  static const Color success = Color(0xFF2E7D53);
-  static const Color successContainer = Color(0xFFD9F2E3);
-  static const Color warning = Color(0xFFB26A00);
-  static const Color warningContainer = Color(0xFFFFEBCC);
+  static const Color errorContainer = Color(0xFFFFDAD5);
+  static const Color onErrorContainer = Color(0xFF93000C);
+  static const Color success = Color(0xFF00774E);
+  static const Color successContainer = Color(0xFFCBF3DE);
+  static const Color warning = Color(0xFFA96B00);
+  static const Color warningContainer = Color(0xFFFFE3BC);
 
-  /// Tinte de las sombras: NO son grises, llevan el morado de marca al 10-15%.
-  /// Es lo que da el efecto "luminoso" del sistema.
-  static const Color shadowTint = Color(0xFF8204BE);
+  /// Tinte de las sombras: la tinta estructural, no un gris neutro. El sistema
+  /// evita sombras densas — la profundidad viene de las capas tonales y del
+  /// borde de 1px, así que esto sólo despega el objeto lo justo.
+  static const Color shadowTint = Color(0xFF131B2E);
 }

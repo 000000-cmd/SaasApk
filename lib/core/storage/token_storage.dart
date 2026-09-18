@@ -16,6 +16,7 @@ class TokenStorage {
   static const String _kOnboard = 'onboarding_done_'; // + userId
   static const String _kBioEnabled = 'biometric_enabled_'; // + userId
   static const String _kBioPrompted = 'biometric_prompted_'; // + userId
+  static const String _kDeviceFallback = 'device_fallback_id';
   // El tour de bienvenida ya NO se marca en el dispositivo: lo gobierna el
   // indicador IsFirstLogin del registro del usuario (ver AuthController).
 
@@ -60,6 +61,17 @@ class TokenStorage {
 
   Future<void> setBiometricPrompted(String userId) =>
       _storage.write(key: '$_kBioPrompted$userId', value: 'true');
+
+  // ---- Identidad del aparato ----
+  //
+  // Respaldo del identificador de dispositivo, para cuando Android no da el
+  // suyo. NO se borra al cerrar sesión: es del teléfono, no de la cuenta —
+  // borrarlo haría que el mismo aparato pareciera otro en el siguiente login.
+
+  Future<String?> deviceFallbackId() => _storage.read(key: _kDeviceFallback);
+
+  Future<void> setDeviceFallbackId(String value) =>
+      _storage.write(key: _kDeviceFallback, value: value);
 
   Future<void> clear() async {
     // Sólo la sesión; el flag de onboarding por usuario se conserva.

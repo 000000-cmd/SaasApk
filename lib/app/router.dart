@@ -7,6 +7,7 @@ import 'package:saas_app/features/auth/login_screen.dart';
 import 'package:saas_app/features/auth/unlock_screen.dart';
 import 'package:saas_app/features/employee/employee_onboarding_screen.dart';
 import 'package:saas_app/features/home/home_shell.dart';
+import 'package:saas_app/features/notifications/notifications_screen.dart';
 import 'package:saas_app/features/splash/splash_screen.dart';
 import 'package:saas_app/features/update/update_required_screen.dart';
 
@@ -55,6 +56,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/employee-onboarding', builder: (_, __) => const EmployeeOnboardingScreen()),
       GoRoute(path: '/update-required', builder: (_, __) => const UpdateRequiredScreen()),
       GoRoute(path: '/home', builder: (_, __) => const HomeShell()),
+      GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
     ],
   );
 });

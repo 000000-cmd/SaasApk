@@ -16,12 +16,18 @@ class EmployeeBalance {
   /// en el read model y es la llave para pedir el historial de liquidaciones.
   final String? employeeId;
 
+  /// El negocio donde trabaja. El empleado no tiene negocio propio —`/business/mine`
+  /// le devuelve vacío—, así que este es el único sitio donde el APK lo sabe, y
+  /// hace falta para pedirle a finance que ponga sus cargos al día.
+  final String? businessId;
+
   const EmployeeBalance({
     required this.balance,
     required this.accrued,
     required this.paid,
     required this.currency,
     this.employeeId,
+    this.businessId,
   });
 
   static const zero = EmployeeBalance(balance: 0, accrued: 0, paid: 0, currency: 'COP');
@@ -32,6 +38,7 @@ class EmployeeBalance {
         paid: _num(j['amountPaid']),
         currency: (j['currency'] ?? 'COP').toString(),
         employeeId: j['employeeId']?.toString(),
+        businessId: j['businessId']?.toString(),
       );
 
   static double _num(dynamic v) => v == null ? 0 : (v as num).toDouble();

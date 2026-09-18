@@ -4,6 +4,8 @@ import 'package:saas_app/core/auth/auth_guard.dart';
 import 'package:saas_app/core/auth/auth_models.dart';
 import 'package:saas_app/core/auth/auth_repository.dart';
 import 'package:saas_app/core/auth/biometric_service.dart';
+import 'package:saas_app/core/auth/device_conflict.dart';
+import 'package:saas_app/core/auth/device_identity.dart';
 import 'package:saas_app/core/network/api_client.dart';
 import 'package:saas_app/core/storage/token_storage.dart';
 
@@ -19,8 +21,9 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   );
 });
 
-final authRepositoryProvider =
-    Provider<AuthRepository>((ref) => AuthRepository(ref.watch(apiClientProvider)));
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepository(ref.watch(apiClientProvider), ref.watch(deviceIdentityProvider)),
+);
 
 final authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
@@ -40,6 +43,15 @@ class AuthState {
   /// Tras un login con contraseña, ofrecer habilitar el ingreso con huella.
   final bool offerBiometrics;
 
+  /// Las credenciales eran buenas, pero hay sesión abierta en otro sitio. La
+  /// pantalla lo convierte en un modal de "¿desvinculamos?"; no es un error.
+  final DeviceConflict? conflict;
+
+  /// Credenciales del intento que quedó en espera, para poder reintentarlo con
+  /// la desvinculación una vez la persona acepta, sin volver a pedírselas.
+  final String? pendingUser;
+  final String? pendingPassword;
+
   const AuthState({
     this.user,
     this.initializing = false,
@@ -48,6 +60,9 @@ class AuthState {
     this.needsOnboarding = false,
     this.lockedUser,
     this.offerBiometrics = false,
+    this.conflict,
+    this.pendingUser,
+    this.pendingPassword,
   });
 
   bool get isAuthenticated => AuthGuard.canAccessApp(user);
@@ -69,6 +84,9 @@ class AuthState {
         needsOnboarding: needsOnboarding ?? this.needsOnboarding,
         lockedUser: lockedUser,
         offerBiometrics: offerBiometrics ?? this.offerBiometrics,
+        conflict: conflict,
+        pendingUser: pendingUser,
+        pendingPassword: pendingPassword,
       );
 }
 
@@ -106,10 +124,14 @@ class AuthController extends Notifier<AuthState> {
     return !(await _storage.isOnboardingDone(user.id));
   }
 
-  Future<bool> login(String email, String password) async {
+  Future<bool> login(String email, String password, {bool unlinkOthers = false}) async {
     state = state.copyWith(loading: true);
     try {
-      final LoginResult r = await _repo.login(email: email.trim(), password: password);
+      final LoginResult r = await _repo.login(
+        email: email.trim(),
+        password: password,
+        unlinkOthers: unlinkOthers,
+      );
       if (!AuthGuard.canAccessApp(r.user)) {
         await _storage.clear();
         state = const AuthState(error: 'Esta cuenta no tiene acceso a la app. Usa la plataforma web.');
@@ -126,6 +148,15 @@ class AuthController extends Notifier<AuthState> {
         offerBiometrics: await _shouldOfferBiometrics(r.user),
       );
       return true;
+    } on DeviceConflict catch (c) {
+      // Las credenciales eran correctas. Se guardan para poder reintentar sin
+      // volver a pedirlas si la persona acepta desvincular.
+      state = AuthState(
+        conflict: c,
+        pendingUser: email.trim(),
+        pendingPassword: password,
+      );
+      return false;
     } on DioException catch (e) {
       state = AuthState(error: _errorMessage(e));
       return false;
@@ -133,6 +164,19 @@ class AuthController extends Notifier<AuthState> {
       state = const AuthState(error: 'No se pudo iniciar sesión. Intenta de nuevo.');
       return false;
     }
+  }
+
+  /// "Sí, desvincula el otro": reintenta el mismo login autorizando el corte.
+  Future<bool> confirmUnlink() async {
+    final String? u = state.pendingUser;
+    final String? p = state.pendingPassword;
+    if (u == null || p == null) return false;
+    return login(u, p, unlinkOthers: true);
+  }
+
+  /// "Cancelar": se descarta el intento y no se toca ninguna sesión.
+  void dismissConflict() {
+    state = const AuthState();
   }
 
   // ---------------- Huella ----------------

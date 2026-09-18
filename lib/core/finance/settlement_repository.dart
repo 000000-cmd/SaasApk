@@ -74,20 +74,52 @@ class SettlementRepository {
     return data.map((e) => SettlementEntry.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  /// Confirma la liquidación de un colaborador. Sin monto, paga todo lo pendiente.
-  /// IRREVERSIBLE: mueve el saldo y queda en la auditoría de tesorería.
-  Future<void> settle(String employeeId, {double? amount}) async {
+  /// Liquida: abona al saldo del colaborador la suma de sus servicios ya
+  /// aprobados. NO manda monto — lo calcula el back con lo aprobado, y mandarlo
+  /// desde aquí permitiría abonar una cifra que no corresponde a ningún trabajo.
+  ///
+  /// IRREVERSIBLE. Si no hay nada aprobado, el back responde un error de negocio
+  /// con su motivo (la pantalla lo muestra tal cual).
+  Future<void> settle(String employeeId) async {
     await _client.dio.post<dynamic>(
       'finance/settlements',
-      data: {
-        'employeeId': employeeId,
-        if (amount != null) 'amount': amount,
-      },
+      data: {'employeeId': employeeId},
+    );
+  }
+
+  /// El colaborador acusa recibo de un pago EN EFECTIVO.
+  ///
+  /// En una transferencia el comprobante ya demuestra que la plata salió; en
+  /// efectivo no hay rastro salvo que la persona diga que lo recibió. Repetirlo
+  /// no cambia nada: la primera confirmación es la que vale.
+  Future<void> confirmCash(String movementId, String employeeId) async {
+    await _client.dio.put<dynamic>(
+      'finance/settlements/$movementId/confirm-cash',
+      queryParameters: <String, dynamic>{'employeeId': employeeId},
     );
   }
 }
 
-/// Una liquidación recibida por el empleado (su "pago"). Viene de la auditoría
+/// Dirección del dinero en el extracto del colaborador.
+///
+/// Los dos primeros son ABONOS (el empleado gana y su saldo sube); `payroll` es
+/// la dispersión de nómina (el empleado cobra y su saldo baja). Distinguirlos es
+/// lo que evita confundir "ya me lo reconocieron" con "ya me lo pagaron".
+enum MovementType {
+  commission,
+  baseSalary,
+  payroll;
+
+  static MovementType from(String? raw) => switch (raw) {
+        'BASE_SALARY' => MovementType.baseSalary,
+        'PAYROLL' => MovementType.payroll,
+        _ => MovementType.commission,
+      };
+
+  bool get isCredit => this != MovementType.payroll;
+}
+
+/// Un movimiento del saldo del colaborador: su extracto. Viene de la auditoría
 /// de tesorería en finance-service, que es la fuente de verdad del movimiento.
 class SettlementEntry {
   final String id;
@@ -96,20 +128,70 @@ class SettlementEntry {
   final DateTime settledAt;
   final String? note;
 
+  final MovementType type;
+
+  /// Desglose de un pago de nómina, congelado por el back. Sin él, el empleado
+  /// ve un solo número y no sabe cuánto fue comisión y cuánto sueldo base.
+  final double commissionAmount;
+  final double baseSalaryAmount;
+
+  /// Cuenta a la que el dueño dice haber consignado. Puede no existir: el
+  /// sistema no opera con el banco.
+  final String? payoutAccount;
+  final String? payrollRunId;
+
+  /// Prueba del pago: el comprobante de la transferencia, o la marca de que se
+  /// entregó en mano (y entonces hace falta el acuse del colaborador).
+  final String? paymentProofUrl;
+  final bool paidInCash;
+  final DateTime? cashConfirmedAt;
+
   const SettlementEntry({
     required this.id,
     required this.amount,
     required this.balanceBefore,
     required this.settledAt,
+    required this.type,
+    required this.commissionAmount,
+    required this.baseSalaryAmount,
     this.note,
+    this.payoutAccount,
+    this.payrollRunId,
+    this.paymentProofUrl,
+    this.paidInCash = false,
+    this.cashConfirmedAt,
   });
+
+  /// Saldo que quedó tras el movimiento. Nunca negativo: un pago no puede
+  /// dejar debiendo al colaborador.
+  double get balanceAfter {
+    final double after = type.isCredit
+        ? balanceBefore + amount
+        : balanceBefore - amount;
+    return after < 0 ? 0 : after;
+  }
+
+  /// Si en este pago, además de la comisión, se consignó el sueldo base. Es la
+  /// línea extra que el empleado con sueldo fijo necesita ver para cuadrar.
+  bool get hasBaseSalary => type == MovementType.payroll && baseSalaryAmount > 0;
+
+  /// Le pagaron en efectivo y todavía no ha confirmado que lo recibió.
+  bool get cashPendingConfirmation => paidInCash && cashConfirmedAt == null;
 
   factory SettlementEntry.fromJson(Map<String, dynamic> j) => SettlementEntry(
         id: j['id'].toString(),
         amount: TeamBalance._num(j['amount']),
         balanceBefore: TeamBalance._num(j['balanceBefore']),
         settledAt: DateTime.tryParse((j['settledAt'] ?? '').toString()) ?? DateTime.now(),
+        type: MovementType.from(j['movementType']?.toString()),
+        commissionAmount: TeamBalance._num(j['commissionAmount']),
+        baseSalaryAmount: TeamBalance._num(j['baseSalaryAmount']),
         note: j['note'] as String?,
+        payoutAccount: j['payoutAccount'] as String?,
+        payrollRunId: j['payrollRunId']?.toString(),
+        paymentProofUrl: j['paymentProofUrl'] as String?,
+        paidInCash: j['paidInCash'] == true,
+        cashConfirmedAt: DateTime.tryParse((j['cashConfirmedAt'] ?? '').toString()),
       );
 }
 
