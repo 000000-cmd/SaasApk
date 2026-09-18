@@ -1,40 +1,83 @@
 import 'package:flutter/services.dart';
+import 'package:saas_app/shared/util/masks.dart';
 
-/// Máscaras de entrada para documento y celular.
+/// Atajos de máscara para los campos de la app.
 ///
-/// La idea es que el usuario vea el número agrupado mientras escribe, pero el
-/// texto CRUDO siga siendo solo dígitos (el `.trim()` que envía el formulario
-/// no arrastra espacios de la máscara: se limpian antes de enviar con
-/// [digitsOnly]).
+/// NO define ninguna máscara: elige una del estándar (`masks.dart`), que es el
+/// mismo que usa la web. Antes esta clase traía su propio agrupador de miles y
+/// su propio agrupador por patrón — dos implementaciones más de lo mismo, y
+/// ambas mandaban el cursor al final del campo en cada tecla, así que corregir
+/// un dígito en mitad de una cédula era imposible.
+///
+/// Se conserva como API porque es lo que llaman las pantallas y porque añade lo
+/// que el estándar no puede saber: qué tope tiene ESTE campo y qué caracteres
+/// no admite (una llave BREV es texto libre, pero nunca lleva espacios).
 class InputMasks {
   InputMasks._();
 
-  /// Número de documento agrupado de a tres DESDE LA DERECHA: `1.098.765.432`.
-  ///
-  /// Es como se lee una cédula en Colombia y como la tiene el usuario en la
-  /// cabeza. Agrupar por la izquierda con tamaños fijos no sirve aquí: las
-  /// cédulas van de 6 a 10 dígitos y los NIT de 9 a 10, así que el patrón
-  /// depende del largo.
-  static List<TextInputFormatter> document({int maxLength = 15}) => [
-        FilteringTextInputFormatter.digitsOnly,
+  /// Número de documento agrupado de a tres desde la derecha: `1.098.765.432`.
+  /// Se envía sin puntos (ver [digitsOnly]).
+  static List<TextInputFormatter> document({int maxLength = 15}) => <TextInputFormatter>[
         LengthLimitingTextInputFormatter(maxLength),
-        const _ThousandsFormatter(),
+        const MaskFormatter(MaskId.document),
       ];
 
   /// Fecha `dd/mm/aaaa` con las barras puestas al vuelo: se teclean 8 dígitos
-  /// y nunca hay que escribir un separador. Es lo que hace cómodo llenarla a
-  /// mano cuando no se quiere abrir el calendario.
-  static List<TextInputFormatter> date() => [
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(8),
-        const _GroupFormatter([2, 2, 4], separator: '/'),
+  /// y nunca hay que escribir un separador.
+  static List<TextInputFormatter> date() => <TextInputFormatter>[
+        const MaskFormatter(MaskId.date),
       ];
 
-  /// Celular colombiano: 10 dígitos agrupados `### ### ####`.
-  static List<TextInputFormatter> phoneCo() => [
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(10),
-        const _GroupFormatter([3, 3, 4]),
+  /// Celular colombiano: 10 dígitos agrupados `300 123 4567`.
+  static List<TextInputFormatter> phoneCo() => <TextInputFormatter>[
+        const MaskFormatter(MaskId.phone),
+      ];
+
+  /// Número de cuenta bancaria, agrupado de a cuatro para poder cotejarlo con
+  /// la libreta sin contar dígitos con el dedo. Se envía sin espacios.
+  ///
+  /// El filtro a dígitos importa aunque el teclado sea numérico: el teclado es
+  /// una SUGERENCIA, en Android se cambia a mano y pegar del portapapeles se lo
+  /// salta siempre. Una letra dentro de un número de cuenta es plata que no
+  /// llega.
+  static List<TextInputFormatter> accountNumber() => <TextInputFormatter>[
+        const MaskFormatter(MaskId.bankAccount),
+      ];
+
+  /// Llave BREV: se guarda LITERAL (puede ser celular, correo o documento), así
+  /// que no se filtran caracteres. Lo único que se impide es el espacio, que
+  /// nunca forma parte de una llave y sí es el typo más común al pegarla.
+  static List<TextInputFormatter> brevKey() => <TextInputFormatter>[
+        FilteringTextInputFormatter.deny(RegExp(r'\s')),
+        LengthLimitingTextInputFormatter(60),
+      ];
+
+  /// Nombre de persona: letras, espacios y los signos de los apellidos
+  /// compuestos, con la inicial de cada palabra en mayúscula.
+  static List<TextInputFormatter> personName({int maxLength = 40}) => <TextInputFormatter>[
+        LengthLimitingTextInputFormatter(maxLength),
+        const MaskFormatter(MaskId.name),
+      ];
+
+  /// Correo: minúsculas y sin espacios.
+  static List<TextInputFormatter> email() => <TextInputFormatter>[
+        const MaskFormatter(MaskId.email),
+      ];
+
+  /// Dinero en pesos, agrupado: `25.000`. Se envía sin puntos.
+  static List<TextInputFormatter> money() => <TextInputFormatter>[
+        const MaskFormatter(MaskId.money),
+      ];
+
+  /// Código de verificación de 6 dígitos.
+  static List<TextInputFormatter> otp() => <TextInputFormatter>[
+        const MaskFormatter(MaskId.otp),
+      ];
+
+  /// Texto corto y libre (el alias con el que reconoces una cuenta). Sin
+  /// máscara a propósito: no tiene forma.
+  static List<TextInputFormatter> shortText({int maxLength = 40}) => <TextInputFormatter>[
+        LengthLimitingTextInputFormatter(maxLength),
       ];
 
   /// Quita todo lo que no sea dígito (para enviar el valor limpio al backend).
@@ -86,55 +129,5 @@ class DateText {
     final String m = date.month.toString().padLeft(2, '0');
     final String d = date.day.toString().padLeft(2, '0');
     return '${date.year}-$m-$d';
-  }
-}
-
-/// Agrupa de a tres desde la derecha con puntos: `1234567` → `1.234.567`.
-class _ThousandsFormatter extends TextInputFormatter {
-  const _ThousandsFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final String digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) return const TextEditingValue();
-    final StringBuffer buf = StringBuffer();
-    for (int i = 0; i < digits.length; i++) {
-      // Un punto cada tres dígitos contando desde el final.
-      if (i > 0 && (digits.length - i) % 3 == 0) buf.write('.');
-      buf.write(digits[i]);
-    }
-    final String text = buf.toString();
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-}
-
-/// Inserta un separador según un patrón de grupos (p. ej. [3,3,4] → "300 123 4567").
-class _GroupFormatter extends TextInputFormatter {
-  const _GroupFormatter(this.groups, {this.separator = ' '});
-  final List<int> groups;
-  final String separator;
-
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final buf = StringBuffer();
-    int i = 0;
-    for (final g in groups) {
-      if (i >= digits.length) break;
-      if (i > 0) buf.write(separator);
-      final end = (i + g).clamp(0, digits.length);
-      buf.write(digits.substring(i, end));
-      i = end;
-    }
-    // Dígitos sobrantes (si los hubiera) se anexan sin romper.
-    if (i < digits.length) buf.write('$separator${digits.substring(i)}');
-    final text = buf.toString();
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
   }
 }

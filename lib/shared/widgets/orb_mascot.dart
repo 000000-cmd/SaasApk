@@ -237,7 +237,7 @@ class _HaloPainter extends CustomPainter {
     final Offset center = Offset(size.width / 2, size.height / 2);
     final double r = size.width / 2;
 
-    // Aurora base: morado amplio + lavanda descentrada (profundidad).
+    // Aurora base: acento amplio + tono claro descentrado (profundidad).
     final Paint glow = Paint()
       ..shader = RadialGradient(
         colors: [
