@@ -14,6 +14,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications programa avisos con la API de fechas de
+        // Java 8, que en Android solo existe a partir de API 26. El
+        // "desugaring" la reescribe para las versiones anteriores; sin esto el
+        // build de release falla en checkReleaseAarMetadata y ni siquiera
+        // empieza a compilar.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -44,4 +50,10 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // La libreria de desugaring que exige flutter_local_notifications. La
+    // version es la minima que pide el paquete; subirla no aporta nada aqui.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

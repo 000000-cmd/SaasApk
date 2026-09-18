@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Tráfico sin cifrar SOLO contra el backend local de desarrollo.
+
+  Por defecto la app habla con https://back.sylvanor.lat, y ahí no hace
+  falta nada de esto. Pero al compilar contra el backend de esta máquina
+  (pasando GATEWAY_URL con http) Android bloquea el HTTP plano desde
+  targetSdk 28, y el síntoma es idéntico a no tener red: "revisa tu conexión",
+  sin más pista. Es el mismo tipo de fallo silencioso que ya costó encontrar
+  cuando faltaba el permiso de INTERNET en el manifest de release.
+
+  Lo que NO se hace: abrir el cleartext en general. Fuera de estos hosts el
+  tráfico sigue exigiendo TLS.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- El "localhost del host" visto desde el emulador de Android. -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- El propio dispositivo (adb reverse). -->
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <!--
+          Para un teléfono real contra el PC por Wi-Fi hay que añadir AQUÍ la IP
+          concreta (p. ej. 192.168.1.34). Esta lista no admite rangos: cada
+          entrada se compara como nombre exacto, así que poner 192.168.1.0 no
+          cubriría nada y solo daría una falsa sensación de estar puesto.
+        -->
+    </domain-config>
+</network-security-config>
