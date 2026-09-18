@@ -1,12 +1,15 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saas_app/app/theme/app_colors.dart';
 import 'package:saas_app/app/theme/app_elevation.dart';
 import 'package:saas_app/app/theme/app_spacing.dart';
 import 'package:saas_app/app/theme/app_typography.dart';
 import 'package:saas_app/core/auth/auth_controller.dart';
+import 'package:saas_app/core/auth/device_conflict.dart';
+import 'package:saas_app/features/auth/device_conflict_dialog.dart';
 import 'package:saas_app/core/config/app_info.dart';
 import 'package:saas_app/shared/widgets/app_button.dart';
 import 'package:saas_app/shared/widgets/app_text_field.dart';
@@ -15,7 +18,7 @@ import 'package:saas_app/shared/widgets/orb_mascot.dart';
 /// Login del APK — la ÚNICA puerta de entrada (las cuentas las crea el dueño
 /// desde la web, aquí no hay registro).
 ///
-/// Sigue la pantalla "Inicio de Sesión" del sistema Luminous Aura: fondo claro
+/// Sigue la pantalla "Inicio de Sesión" del sistema Vertex: fondo claro
 /// con auras moradas difusas, el ORB flotando como identidad de marca, y las
 /// credenciales dentro de una tarjeta de CRISTAL (blanco translúcido + blur).
 /// La navegación post-login la maneja el redirect del router.
@@ -68,11 +71,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (ok) _mascot.celebrate();
   }
 
+  /// Sesión abierta en otro sitio: se pregunta antes de cortarla.
+  ///
+  /// La contraseña ya era correcta, así que el reintento no vuelve a pedirla:
+  /// el controlador la conserva justo para esto.
+  Future<void> _resolverChoque(DeviceConflict conflict) async {
+    final bool aceptar = await showDeviceConflictDialog(context, conflict);
+    if (!mounted) return;
+    if (!aceptar) {
+      ref.read(authControllerProvider.notifier).dismissConflict();
+      return;
+    }
+    final bool ok = await ref.read(authControllerProvider.notifier).confirmUnlink();
+    if (ok && mounted) _mascot.celebrate();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Credenciales inválidas u otro fallo: la mascota reacciona con desánimo.
     ref.listen(authControllerProvider, (prev, next) {
       if (next.error != null && next.error != prev?.error) _mascot.reject();
+      // El choque de dispositivos NO es un error: se pregunta, no se rechaza.
+      final DeviceConflict? c = next.conflict;
+      if (c != null && c != prev?.conflict) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _resolverChoque(c));
+      }
     });
     final AuthState auth = ref.watch(authControllerProvider);
     final ColorScheme scheme = Theme.of(context).colorScheme;
@@ -80,7 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       // El teclado empuja/encoge la hoja para que el campo enfocado suba.
       resizeToAvoidBottomInset: true,
-      body: _LuminousAura(
+      body: _AuraBackdrop(
         child: LayoutBuilder(
         builder: (context, constraints) {
           // ORB responsivo: grande en teléfonos, acotado en pantallas pequeñas
@@ -131,6 +154,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             controller: _email,
                             focusNode: _emailFocus,
                             keyboardType: TextInputType.text,
+                            // Sin mayúscula automática: el teclado la pone en la
+                            // primera letra y "Andres" no es el usuario "andres".
+                            // Es el motivo más tonto por el que un login falla.
+                            textCapitalization: TextCapitalization.none,
+                            // Sin máscara fija: aquí caben tres formas de dato
+                            // distintas. Lo que sí se impide es el espacio —
+                            // uno pegado al final al copiar el correo es la
+                            // segunda causa más tonta de un login fallido.
+                            inputFormatters: <TextInputFormatter>[
+                              FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                            ],
+                            maxLength: 120,
                             textInputAction: TextInputAction.next,
                           ),
                           const SizedBox(height: AppSpacing.lg),
@@ -140,6 +175,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             controller: _password,
                             focusNode: _passwordFocus,
                             obscure: _obscure,
+                            maxLength: 72,
                             textInputAction: TextInputAction.done,
                             onSubmitted: (_) => _submit(),
                             suffixIcon: IconButton(
@@ -199,9 +235,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 }
 
 /// Fondo del sistema: lienzo claro con dos auras moradas muy difusas en
-/// esquinas opuestas. Es lo que da el nombre a "Luminous Aura".
-class _LuminousAura extends StatelessWidget {
-  const _LuminousAura({required this.child});
+/// esquinas opuestas: da profundidad sin recurrir a una sombra pesada.
+class _AuraBackdrop extends StatelessWidget {
+  const _AuraBackdrop({required this.child});
   final Widget child;
 
   @override

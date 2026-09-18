@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saas_app/app/theme/app_colors.dart';
@@ -7,16 +9,21 @@ import 'package:saas_app/core/auth/auth_controller.dart';
 import 'package:saas_app/shared/widgets/fingerprint_button.dart';
 import 'package:saas_app/shared/widgets/orb_mascot.dart';
 
-/// Volver a entrar cuando ya hay una sesión guardada con huella.
+/// PANTALLA DE RECURRENCIA: volver a entrar cuando ya hay sesión guardada.
 ///
-/// Antes esto no existía: el login disparaba el lector nada más abrir la app.
-/// Salía un diálogo del sistema encima de un formulario que no venías a usar,
-/// y si lo cancelabas quedabas en una pantalla de credenciales sin saber por
-/// qué. Ahora el lector NO se dispara solo: primero se saluda a quien vuelve y
-/// la huella se pide cuando la pide el usuario.
+/// Es la puerta de quien ya vive aquí, no un formulario de acceso. Por eso el
+/// lector de huella se dispara SOLO al abrirla: con la biometría vinculada, la
+/// app se abre con el dedo puesto y ya, sin un toque intermedio que no aporta
+/// nada.
 ///
-/// Una sola acción en pantalla — la huella — y debajo, discreta, la salida a
-/// las credenciales de siempre.
+/// (Antes no se disparaba solo, y con razón: el prompt del sistema salía encima
+/// del formulario de credenciales, que no era lo que venías a usar, y al
+/// cancelarlo te quedabas en una pantalla de login sin saber por qué. Eso deja
+/// de aplicar cuando la pantalla es esta y su única razón de ser es entrar.)
+///
+/// Se dispara UNA vez. Si falla o se cancela, el botón queda ahí para
+/// reintentar a mano, y debajo —discreta— la salida a las credenciales: la
+/// huella puede fallar con el dedo mojado, y el teléfono puede pasar de mano.
 class UnlockScreen extends ConsumerStatefulWidget {
   const UnlockScreen({super.key});
 
@@ -27,6 +34,30 @@ class UnlockScreen extends ConsumerStatefulWidget {
 class _UnlockScreenState extends ConsumerState<UnlockScreen> {
   FingerprintStatus _status = FingerprintStatus.idle;
   String? _message;
+
+  /// Solo el primer intento es automático. Sin esta marca, un fallo volvería a
+  /// levantar el prompt en el siguiente repintado y quedaría un bucle del que
+  /// no se puede salir ni para pulsar "entrar con usuario y contraseña".
+  bool _autoIntentado = false;
+
+  /// La espera que devuelve el botón a reposo tras un fallo. Se guarda para
+  /// poder cancelarla: si la pantalla se va antes (la salida a credenciales,
+  /// por ejemplo), un temporizador suelto seguiría vivo apuntando a un estado
+  /// que ya no existe.
+  Timer? _volverAReposo;
+
+  @override
+  void initState() {
+    super.initState();
+    // Tras el primer frame: el prompt del sistema es una vista nativa y
+    // levantarla durante la construcción deja la pantalla a medio pintar
+    // detrás del diálogo.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _autoIntentado) return;
+      _autoIntentado = true;
+      _unlock();
+    });
+  }
 
   Future<void> _unlock() async {
     setState(() {
@@ -48,10 +79,18 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
       _message = 'No reconocimos tu huella. Inténtalo de nuevo.';
     });
     // Vuelve a reposo para que se note que puede reintentar.
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
-    if (mounted && _status == FingerprintStatus.error) {
-      setState(() => _status = FingerprintStatus.idle);
-    }
+    _volverAReposo?.cancel();
+    _volverAReposo = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted && _status == FingerprintStatus.error) {
+        setState(() => _status = FingerprintStatus.idle);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _volverAReposo?.cancel();
+    super.dispose();
   }
 
   @override

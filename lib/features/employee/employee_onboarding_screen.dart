@@ -4,6 +4,7 @@ import 'package:saas_app/app/theme/app_colors.dart';
 import 'package:saas_app/app/theme/app_spacing.dart';
 import 'package:saas_app/app/theme/app_typography.dart';
 import 'package:saas_app/core/auth/auth_controller.dart';
+import 'package:saas_app/core/finance/bank_account_repository.dart';
 import 'package:saas_app/shared/util/input_masks.dart';
 import 'package:saas_app/shared/widgets/app_button.dart';
 import 'package:saas_app/shared/widgets/app_date_field.dart';
@@ -47,8 +48,22 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
   bool _typing = false;
   String? _error;
 
-  static const List<String> _eyebrows = ['IDENTIDAD', 'CONTACTO', 'CONFIRMACIÓN'];
-  static const List<String> _titles = ['¿Quién eres?', '¿Cómo te contactamos?', 'Todo listo'];
+  // ---- Paso de cuenta bancaria ----
+  // Es OBLIGATORIO: sin una cuenta, el día de pago el dueño sólo puede darle
+  // efectivo o perseguirlo por WhatsApp. Pedirlo aquí, una vez, cuesta menos
+  // que pedirlo cada quincena.
+  AccountKind _accountKind = AccountKind.bank;
+  final TextEditingController _accountNumber = TextEditingController();
+  final TextEditingController _brevKey = TextEditingController();
+  String? _bankId;
+  String _accountType = 'SAVINGS';
+  List<BankOption> _banks = const [];
+
+  static const List<String> _eyebrows = ['IDENTIDAD', 'CONTACTO', 'PAGOS', 'CONFIRMACIÓN'];
+  static const List<String> _titles = [
+    '¿Quién eres?', '¿Cómo te contactamos?', '¿Dónde te pagamos?', 'Todo listo',
+  ];
+  static const int _lastStep = 3;
 
   @override
   void initState() {
@@ -61,6 +76,18 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
       final List<String> parts = full.split(' ');
       _firstName.text = parts.first;
       if (parts.length > 1) _lastName.text = parts.sublist(1).join(' ');
+    }
+    _loadBanks();
+  }
+
+  /// El catálogo de bancos se pide al entrar y no al llegar al paso: si falla la
+  /// red, el empleado se entera antes de haber tecleado nada.
+  Future<void> _loadBanks() async {
+    try {
+      final List<BankOption> banks = await ref.read(bankAccountRepositoryProvider).banks();
+      if (mounted) setState(() => _banks = banks);
+    } catch (_) {
+      // Sin catálogo todavía puede registrar una llave BREV.
     }
   }
 
@@ -80,6 +107,8 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
     _lastName.dispose();
     _document.dispose();
     _phone.dispose();
+    _accountNumber.dispose();
+    _brevKey.dispose();
     super.dispose();
   }
 
@@ -102,7 +131,16 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
       setState(() => _error = 'Completa nombre, apellido y documento para seguir.');
       return;
     }
-    if (_step < 2) {
+    // La cuenta es obligatoria: se comprueba aquí y otra vez en el back.
+    if (_step == 2) {
+      final String? falta = _faltaEnCuenta();
+      if (falta != null) {
+        _mascot.reject();
+        setState(() => _error = falta);
+        return;
+      }
+    }
+    if (_step < _lastStep) {
       _mascot.jump();
       _goTo(_step + 1);
     } else {
@@ -110,12 +148,55 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
     }
   }
 
+  /// Qué le falta a la cuenta para servir. Null = está completa.
+  String? _faltaEnCuenta() {
+    if (_accountKind == AccountKind.brev) {
+      return _brevKey.text.trim().isEmpty ? 'Escribe tu llave BREV para poder pagarte.' : null;
+    }
+    if (_bankId == null) return 'Elige tu banco.';
+    if (_accountNumber.text.trim().isEmpty) return 'Escribe tu número de cuenta.';
+    return null;
+  }
+
   Future<void> _finish() async {
-    setState(() => _saving = true);
+    setState(() { _saving = true; _error = null; });
+
+    // La cuenta SÍ se persiste (a diferencia del resto del wizard, que todavía
+    // es local): es de lo que depende que le puedan pagar, y perderla obligaría
+    // a pedírsela otra vez el día de la nómina.
+    try {
+      final String? thirdPartyId = await ref.read(myThirdPartyIdProvider.future);
+      if (thirdPartyId != null) {
+        await ref.read(bankAccountRepositoryProvider).create(
+              thirdPartyId: thirdPartyId,
+              kind: _accountKind,
+              bankId: _accountKind == AccountKind.bank ? _bankId : null,
+              accountType: _accountKind == AccountKind.bank ? _accountType : null,
+              // Sin los espacios de la máscara: al back va el número, no cómo se lee.
+              accountNumber: _accountKind == AccountKind.bank
+                  ? InputMasks.digitsOnly(_accountNumber.text)
+                  : null,
+              brevKey: _accountKind == AccountKind.brev ? _brevKey.text : null,
+              isPrimary: true,
+            );
+        ref.invalidate(myBankAccountsProvider);
+      }
+    } catch (_) {
+      // Que falle guardar la cuenta no puede dejarlo atrapado en el alta: entra
+      // igual y la registra luego desde su perfil. Se le dice, no se le esconde.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo guardar tu cuenta. Agrégala luego desde tu perfil.'),
+          ),
+        );
+      }
+    }
+
     // La celebración se alcanza a ver antes de que el router nos saque.
     _mascot.celebrate();
     await Future<void>.delayed(const Duration(milliseconds: 450));
-    // TODO(back): enviar los datos capturados al servicio de empleados.
+    // TODO(back): enviar el resto de los datos capturados al servicio de empleados.
     await ref.read(authControllerProvider.notifier).completeOnboarding();
   }
 
@@ -152,7 +233,7 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'PASO ${_step + 1} DE 3 · ${_eyebrows[_step]}',
+                              'PASO ${_step + 1} DE ${_lastStep + 1} · ${_eyebrows[_step]}',
                               style: AppTypography.labelSm(color: AppColors.secondaryFixedDim),
                             ),
                             const SizedBox(height: 4),
@@ -171,12 +252,12 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Row(
-                    children: List<Widget>.generate(3, (i) {
+                    children: List<Widget>.generate(_lastStep + 1, (i) {
                       return Expanded(
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
                           height: 4,
-                          margin: EdgeInsets.only(right: i < 2 ? AppSpacing.sm : 0),
+                          margin: EdgeInsets.only(right: i < _lastStep ? AppSpacing.sm : 0),
                           decoration: BoxDecoration(
                             color: i <= _step ? AppColors.primaryContainer : AppColors.outlineDark,
                             borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
@@ -205,6 +286,7 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
                       children: [
                         _stepWrap(_identityStep()),
                         _stepWrap(_contactStep()),
+                        _stepWrap(_bankStep()),
                         _stepWrap(_summaryStep(dark)),
                       ],
                     ),
@@ -232,7 +314,7 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
                             ],
                             Expanded(
                               child: AppButton(
-                                label: _step == 2 ? 'Empezar' : 'Continuar',
+                                label: _step == _lastStep ? 'Empezar' : 'Continuar',
                                 size: AppButtonSize.lg,
                                 loading: _saving,
                                 expanded: true,
@@ -271,6 +353,8 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
                 label: 'Nombre',
                 controller: _firstName,
                 focusNode: _focuses[0],
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: InputMasks.personName(),
                 textInputAction: TextInputAction.next,
               ),
             ),
@@ -280,6 +364,8 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
                 label: 'Apellido',
                 controller: _lastName,
                 focusNode: _focuses[1],
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: InputMasks.personName(),
                 textInputAction: TextInputAction.next,
               ),
             ),
@@ -344,6 +430,114 @@ class _EmployeeOnboardingScreenState extends ConsumerState<EmployeeOnboardingScr
           onChanged: (d) => setState(() => _birthDate = d),
         ),
       ],
+    );
+  }
+
+  /// Dónde recibe la plata. Es el único paso del alta que se guarda de verdad:
+  /// sin cuenta, el día de pago el dueño sólo puede darle efectivo.
+  Widget _bankStep() {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool esBrev = _accountKind == AccountKind.brev;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _StepHint(
+          text: 'Aquí te consignamos tu nómina. Registra al menos una: podrás cambiarla o '
+              'agregar más desde tu perfil.',
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // Banco o BREV cambia todo lo demás, así que se elige primero.
+        Row(
+          children: [
+            Expanded(child: _kindChip('Cuenta bancaria', AccountKind.bank, !esBrev)),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: _kindChip('Llave BREV', AccountKind.brev, esBrev)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        if (esBrev) ...[
+          AppTextField(
+            label: 'Tu llave BREV',
+            hint: 'Celular, correo o documento',
+            controller: _brevKey,
+            inputFormatters: InputMasks.brevKey(),
+            textInputAction: TextInputAction.done,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            // Se avisa porque una llave "arreglada" manda la plata a otra parte.
+            'Se guarda exactamente como la escribas. Revísala bien.',
+            style: AppTypography.bodySm(color: scheme.onSurfaceVariant),
+          ),
+        ] else ...[
+          Text('Banco', style: AppTypography.labelMd(color: scheme.onSurfaceVariant)),
+          const SizedBox(height: AppSpacing.sm),
+          DropdownButtonFormField<String>(
+            initialValue: _bankId,
+            isExpanded: true,
+            hint: const Text('Elige tu banco'),
+            items: _banks
+                .map((b) => DropdownMenuItem(
+                      value: b.id,
+                      child: Text(b.name, overflow: TextOverflow.ellipsis),
+                    ),)
+                .toList(),
+            onChanged: (v) => setState(() => _bankId = v),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text('Tipo de cuenta', style: AppTypography.labelMd(color: scheme.onSurfaceVariant)),
+          const SizedBox(height: AppSpacing.sm),
+          DropdownButtonFormField<String>(
+            initialValue: _accountType,
+            isExpanded: true,
+            items: const [
+              DropdownMenuItem(value: 'SAVINGS', child: Text('Ahorros')),
+              DropdownMenuItem(value: 'CHECKING', child: Text('Corriente')),
+            ],
+            onChanged: (v) => setState(() => _accountType = v ?? 'SAVINGS'),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppTextField(
+            label: 'Número de cuenta',
+            hint: 'Sin puntos ni guiones',
+            controller: _accountNumber,
+            keyboardType: TextInputType.number,
+            inputFormatters: InputMasks.accountNumber(),
+            textInputAction: TextInputAction.done,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _kindChip(String label, AccountKind kind, bool selected) {
+    return InkWell(
+      onTap: () => setState(() {
+        _accountKind = kind;
+        _error = null;
+      }),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg, horizontal: AppSpacing.md),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primaryFixed : Colors.transparent,
+          border: Border.all(
+            color: selected ? AppColors.primary : Theme.of(context).colorScheme.outlineVariant,
+            width: selected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: AppTypography.bodyMd(
+            color: selected ? AppColors.onPrimaryFixed : Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      ),
     );
   }
 
