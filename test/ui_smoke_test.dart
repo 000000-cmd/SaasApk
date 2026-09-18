@@ -8,6 +8,7 @@ import 'package:saas_app/core/auth/biometric_service.dart';
 import 'package:saas_app/core/business/business_repository.dart';
 import 'package:saas_app/core/business/team_repository.dart';
 import 'package:saas_app/core/finance/balance_repository.dart';
+import 'package:saas_app/core/finance/bank_account_repository.dart';
 import 'package:saas_app/core/finance/settlement_repository.dart';
 import 'package:saas_app/features/auth/login_screen.dart';
 import 'package:saas_app/features/auth/unlock_screen.dart';
@@ -19,7 +20,7 @@ import 'package:saas_app/core/menu/menu_models.dart';
 import 'package:saas_app/features/home/home_shell.dart';
 import 'package:saas_app/shared/util/money.dart';
 import 'package:saas_app/shared/widgets/orb_mascot.dart';
-import 'package:saas_app/shared/widgets/orb_nav_bar.dart';
+import 'package:saas_app/shared/widgets/app_nav_bar.dart';
 
 /// Smoke de UI del rediseño (ORB + wizard + navbar footer + bóveda del saldo).
 /// Corre en viewport de teléfono (375x812): cualquier overflow revienta el test.
@@ -124,6 +125,10 @@ Widget _app({
         // estado de carga y no se puede afirmar nada del contenido.
         myBalanceProvider.overrideWith((ref) async => EmployeeBalance.zero),
         mySettlementsProvider.overrideWith((ref) async => const <SettlementEntry>[]),
+        // Sin tercero no hay a quién colgarle la cuenta: el alta termina igual
+        // (es a propósito — no puede quedarse atrapado por eso).
+        myThirdPartyIdProvider.overrideWith((ref) async => null),
+        myBankAccountsProvider.overrideWith((ref) async => const <BankAccount>[]),
         // Vacío por defecto: así el resto de pruebas siguen ejerciendo la
         // reserva de pestañas, que es lo que se ve sin red.
         app_menu.menuControllerProvider.overrideWith(() => _FakeMenu(menu)),
@@ -166,7 +171,7 @@ void main() {
 
     // El ORB es la identidad de marca de la pantalla.
     expect(find.byType(OrbMascot), findsOneWidget);
-    expect(find.text('Luminous Aura'), findsOneWidget);
+    expect(find.text('Moda ERP'), findsOneWidget);
     expect(find.text('Cada servicio suma'), findsOneWidget);
     expect(find.text('Entrar'), findsOneWidget);
     // Sin registro: la única puerta es el login.
@@ -174,7 +179,7 @@ void main() {
     expect(find.textContaining('Regístrate'), findsNothing);
   });
 
-  testWidgets('Wizard: 3 pasos con validación, resumen y cierre', (tester) async {
+  testWidgets('Wizard: 4 pasos con validación, resumen y cierre', (tester) async {
     _phoneViewport(tester);
     final _FakeAuth auth =
         _FakeAuth(AuthState(user: _employee(), needsOnboarding: true));
@@ -183,7 +188,7 @@ void main() {
 
     // Paso 1: identidad. Sin documento no deja seguir.
     expect(find.text('¿Quién eres?'), findsOneWidget);
-    expect(find.text('PASO 1 DE 3 · IDENTIDAD'), findsOneWidget);
+    expect(find.text('PASO 1 DE 4 · IDENTIDAD'), findsOneWidget);
     await tester.enterText(find.byType(TextField).at(2), ''); // documento vacío
     await tester.tap(find.text('Continuar'));
     await _settle(tester);
@@ -200,6 +205,19 @@ void main() {
     await tester.tap(find.text('Continuar'));
     await _settle(tester);
 
+    // Paso 3: cuenta de pago. Es OBLIGATORIA — sin ella no deja seguir.
+    expect(find.text('¿Dónde te pagamos?'), findsOneWidget);
+    await tester.tap(find.text('Continuar'));
+    await _settle(tester);
+    expect(find.textContaining('Elige tu banco'), findsWidgets);
+
+    // La llave BREV no necesita catálogo de bancos: sirve para cerrar el alta.
+    await tester.tap(find.text('Llave BREV'));
+    await _settle(tester);
+    await tester.enterText(find.byType(TextField).last, 'demo@correo.com');
+    await tester.tap(find.text('Continuar'));
+    await _settle(tester);
+
     // Paso 3: resumen con lo diligenciado y lo pendiente.
     expect(find.text('Todo listo'), findsOneWidget);
     expect(find.text('Demo Empleado'), findsOneWidget);
@@ -209,7 +227,9 @@ void main() {
     expect(find.text('Sin diligenciar'), findsWidgets);
 
     await tester.tap(find.text('Empezar'));
+    // El cierre espera 450 ms para que se vea la celebración del ORB.
     await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 600));
     expect(auth.onboardingCompleted, isTrue);
   });
 
@@ -221,46 +241,42 @@ void main() {
     await _settle(tester);
 
     // La razón de entrar: el saldo, gigante y arriba.
-    // El titular cambió: no es una deuda vencida, es el acumulado del periodo.
-    expect(find.text('Tu balance del mes'), findsOneWidget);
+    // El titular es el saldo acumulado del periodo, no una deuda vencida.
+    expect(find.text('TU SALDO'), findsOneWidget);
     expect(find.text(r'$ 0'), findsWidgets);
     expect(find.textContaining('Demo'), findsWidgets);
 
-    // Lo que depende de citas se muestra como pendiente, no se inventa.
-    expect(find.text('Citas hoy'), findsOneWidget);
-    expect(find.text('Valoración'), findsOneWidget);
-    expect(find.text('Sin citas todavía'), findsOneWidget);
-
-    // El contexto del negocio vive más abajo: hay que desplazarse.
-    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
-    await _settle(tester);
-    expect(find.text('Negocio Smoke'), findsOneWidget);
+    // El trabajo de hoy: se muestra vacío en vez de inventarse citas.
+    expect(find.text('Hoy'), findsOneWidget);
+    expect(find.text('Hoy no tienes citas'), findsOneWidget);
 
     // Navbar footer (sin drawer ni AppBar).
     expect(find.byType(Drawer), findsNothing);
     expect(find.byType(AppBar), findsNothing);
-    for (final String label in ['Inicio', 'Citas', 'Pagos', 'Perfil']) {
+    for (final String label in ['Inicio', 'Servicios', 'Movimientos', 'Más']) {
       expect(
-        find.descendant(of: find.byType(OrbNavBar), matching: find.text(label)),
+        find.descendant(of: find.byType(AppNavBar), matching: find.text(label)),
         findsOneWidget,
       );
     }
 
-    // Citas: bloqueada "próximamente".
-    await tester.tap(find.descendant(of: find.byType(OrbNavBar), matching: find.text('Citas')));
+    // Servicios: su trabajo, separado de su plata.
+    await tester.tap(find.descendant(of: find.byType(AppNavBar), matching: find.text('Servicios')));
     await _settle(tester);
-    expect(find.text('PRÓXIMAMENTE'), findsOneWidget);
+    expect(find.text('Mis servicios'), findsOneWidget);
 
-    // Pagos: historial base con estado vacío que explica qué vendrá.
-    await tester.tap(find.descendant(of: find.byType(OrbNavBar), matching: find.text('Pagos')));
+    // Movimientos: lo que se le abonó y lo que se le consignó.
+    await tester.tap(
+      find.descendant(of: find.byType(AppNavBar), matching: find.text('Movimientos')),
+    );
     await _settle(tester);
-    expect(find.text('Aún no tienes pagos registrados'), findsOneWidget);
-    expect(find.text('TOTAL COBRADO'), findsOneWidget);
+    expect(find.text('Movimientos'), findsWidgets);
 
-    // Perfil: identidad + cerrar sesión.
-    await tester.tap(find.descendant(of: find.byType(OrbNavBar), matching: find.text('Perfil')));
+    // Más: el índice de lo suyo (perfil, cuentas, notificaciones).
+    await tester.tap(find.descendant(of: find.byType(AppNavBar), matching: find.text('Más')));
     await _settle(tester);
-    expect(find.text('Cerrar sesión'), findsOneWidget);
+    expect(find.text('Demo Empleado'), findsOneWidget);
+    expect(find.text('Tus datos, tu foto y tu contraseña'), findsOneWidget);
   });
 
   testWidgets('Dueño: recorrido propio (panel, liquidar, equipo), no el del empleado',
@@ -296,32 +312,32 @@ void main() {
     // Tabs del dueño, no los del empleado.
     for (final String label in ['Panel', 'Liquidar', 'Equipo', 'Perfil']) {
       expect(
-        find.descendant(of: find.byType(OrbNavBar), matching: find.text(label)),
+        find.descendant(of: find.byType(AppNavBar), matching: find.text(label)),
         findsOneWidget,
       );
     }
-    expect(find.descendant(of: find.byType(OrbNavBar), matching: find.text('Citas')), findsNothing);
+    expect(find.descendant(of: find.byType(AppNavBar), matching: find.text('Citas')), findsNothing);
 
     // El panel abre con la decisión de plata: lo que hay por abonar.
     expect(find.text('Saldo a abonar'), findsOneWidget);
     expect(find.text(r'$ 450.000'), findsWidgets);
 
     // Liquidaciones: el colaborador con saldo y su acción.
-    await tester.tap(find.descendant(of: find.byType(OrbNavBar), matching: find.text('Liquidar')));
+    await tester.tap(find.descendant(of: find.byType(AppNavBar), matching: find.text('Liquidar')));
     await _settle(tester);
     expect(find.text('Total por confirmar'), findsOneWidget);
     expect(find.text('Ana Ruiz'), findsOneWidget);
-    expect(find.text('Liberar comisión'), findsOneWidget);
+    expect(find.text('Abonar aprobado'), findsOneWidget);
 
     // Confirmar es irreversible: exige confirmación explícita con el monto.
-    await tester.tap(find.text('Liberar comisión'));
+    await tester.tap(find.text('Abonar aprobado'));
     await _settle(tester);
     expect(find.textContaining('irreversible'), findsOneWidget);
     await tester.tap(find.text('Cancelar'));
     await _settle(tester);
 
     // Equipo: quién está y en qué sede.
-    await tester.tap(find.descendant(of: find.byType(OrbNavBar), matching: find.text('Equipo')));
+    await tester.tap(find.descendant(of: find.byType(AppNavBar), matching: find.text('Equipo')));
     await _settle(tester);
     expect(find.text('Estado del equipo'), findsOneWidget);
     expect(find.text('Ana Ruiz'), findsOneWidget);
@@ -364,7 +380,7 @@ void main() {
     // Las aserciones se acotan a la barra: "Sedes" o "Servicios" pueden
     // aparecer como contadores dentro del panel, y eso no es una pestaña.
     Finder tab(String label) =>
-        find.descendant(of: find.byType(OrbNavBar), matching: find.text(label));
+        find.descendant(of: find.byType(AppNavBar), matching: find.text(label));
 
     // Lo que la configuración enciende, con SU nombre (no el cableado).
     expect(tab('Mi empresa'), findsOneWidget);
@@ -411,7 +427,7 @@ void main() {
     await _settle(tester);
 
     Finder tab(String label) =>
-        find.descendant(of: find.byType(OrbNavBar), matching: find.text(label));
+        find.descendant(of: find.byType(AppNavBar), matching: find.text(label));
 
     // Cerrar sesión y la huella viven en Perfil: no puede desaparecer porque
     // el menú de la web no lo declare.
@@ -420,38 +436,54 @@ void main() {
     expect(tab('Liquidaciones'), findsOneWidget);
   });
 
-  testWidgets('Bienvenida: saluda y NO pide la huella sola', (tester) async {
+  testWidgets('Recurrencia: pide la huella sola al abrir, y deja reintentar', (tester) async {
     _phoneViewport(tester);
-    // Sesión guardada y bloqueada por huella: el estado con el que se abría
-    // antes el lector de golpe.
+    // Sesión guardada y bloqueada por huella: el estado en el que se abre la
+    // pantalla de recurrencia.
     final _FakeAuth auth = _FakeAuth(AuthState(lockedUser: _employee()));
-    final _FakeBiometrics bio = _FakeBiometrics(accepts: true);
+    // El lector RECHAZA: así se comprueba lo automático y, además, que un fallo
+    // no deja la pantalla dando vueltas volviendo a abrir el prompt.
+    final _FakeBiometrics bio = _FakeBiometrics(accepts: false);
 
     await tester.pumpWidget(_app(home: const UnlockScreen(), auth: auth, biometrics: bio));
     await _settle(tester);
 
-    // Lo importante: al abrir NO se llamó al lector. Antes se disparaba solo en
-    // el initState del login.
-    expect(bio.calls, 0, reason: 'la huella no debe pedirse sin que el usuario la pida');
+    // Lo importante: al abrir se pidió la huella sin que nadie tocara nada. Es
+    // la razón de ser de esta pantalla — quien vuelve entra con el dedo puesto.
+    expect(bio.calls, 1, reason: 'con la huella vinculada, la app debe pedirla al abrir');
 
     // Saluda a quien vuelve, por su nombre.
     expect(find.textContaining('Hola de nuevo'), findsOneWidget);
     expect(find.textContaining('Demo'), findsOneWidget);
 
+    // Tras el rechazo NO se reintenta solo: quedaría un bucle del que no se
+    // puede salir ni para pulsar la salida a credenciales.
+    await _settle(tester);
+    expect(bio.calls, 1, reason: 'un fallo no puede relanzar el lector por su cuenta');
+
     // Una sola acción principal, más la salida al formulario de siempre.
     expect(find.byType(FingerprintButton), findsOneWidget);
     expect(find.text('Entrar con usuario y contraseña'), findsOneWidget);
 
-    // Y al tocarla, ahí sí se pide.
+    // Y a mano, se puede volver a intentar.
     await tester.tap(find.byType(FingerprintButton));
     await _settle(tester);
-    expect(bio.calls, 1);
+    expect(bio.calls, 2);
   });
 
   testWidgets('Bienvenida: la salida a credenciales suelta el bloqueo', (tester) async {
     _phoneViewport(tester);
     final _FakeAuth auth = _FakeAuth(AuthState(lockedUser: _employee()));
-    await tester.pumpWidget(_app(home: const UnlockScreen(), auth: auth));
+    // Lector que rechaza: el intento automático de la pantalla falla y la
+    // salida a credenciales tiene que seguir estando disponible. Es justo el
+    // caso del dedo mojado o el sensor sucio.
+    await tester.pumpWidget(
+      _app(
+        home: const UnlockScreen(),
+        auth: auth,
+        biometrics: _FakeBiometrics(accepts: false),
+      ),
+    );
     await _settle(tester);
 
     expect(auth.state.biometricLocked, isTrue);
