@@ -19,3 +19,13 @@ pubspec.lock
 .DS_Store
 
 .claude
+
+# Firmas y configuracion local de la compilacion: nunca al repositorio.
+android/key.properties
+android/local.properties
+*.jks
+*.keystore
+
+# Rastros de herramientas de trabajo local
+.agents/
+.superpowers/
