@@ -3,11 +3,11 @@ import 'package:saas_app/app/theme/app_elevation.dart';
 import 'package:saas_app/app/theme/app_spacing.dart';
 import 'package:saas_app/app/theme/app_typography.dart';
 
-/// Tarjeta del sistema "Luminous Aura".
+/// Tarjeta del sistema **Vertex**.
 ///
-/// Se define por su SOMBRA tintada de morado, no por un borde: el sistema pide
-/// que los límites se sugieran con luz, no con líneas. Radio mínimo 24px para
-/// imitar la curvatura del orb.
+/// Nivel 1 de elevación: superficie sólida + borde de 1px y CERO sombra en
+/// reposo. La profundidad viene de las capas tonales, no del difuminado; sólo
+/// la tarjeta `raised` (destacada o pulsada) se despega.
 class AppCard extends StatelessWidget {
   const AppCard({
     super.key,
@@ -58,7 +58,8 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: raised ? AppElevation.raised : AppElevation.card,
+        border: Border.all(color: scheme.outlineVariant),
+        boxShadow: raised ? AppElevation.raised : null,
       ),
       child: onTap == null
           ? content

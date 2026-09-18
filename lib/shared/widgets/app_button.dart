@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:saas_app/app/theme/app_colors.dart';
-import 'package:saas_app/app/theme/app_elevation.dart';
 import 'package:saas_app/app/theme/app_spacing.dart';
 import 'package:saas_app/app/theme/app_typography.dart';
 
-enum AppButtonVariant { primary, secondary, ghost, danger }
+/// `ink` es el botón "autoritativo": tinta estructural sobre superficie clara,
+/// el máximo contraste posible. Se reserva para la acción que cierra un flujo
+/// (confirmar, aprobar). `primary` lleva el acento y es la acción habitual.
+enum AppButtonVariant { primary, ink, secondary, ghost, danger }
 
 enum AppButtonSize { sm, md, lg }
 
-/// Botón del sistema "Luminous Aura". Usar en vez de [ElevatedButton] crudos.
+/// Botón del sistema **Vertex**. Usar en vez de [ElevatedButton] crudos.
 ///
-/// La acción primaria es una PÍLDORA con degradado sutil morado→violeta y halo
-/// luminoso: contrasta a propósito contra la retícula ortogonal del resto de la
-/// interfaz. La secundaria es transparente con trazo morado.
+/// Silueta de 8px en todas las variantes: nada de píldoras — el círculo se
+/// reserva para avatares e indicadores. El primario es relleno sólido del
+/// acento (sin degradado ni halo); el secundario, un borde de 1px.
 class AppButton extends StatelessWidget {
   const AppButton({
     super.key,
@@ -79,21 +81,19 @@ class AppButton extends StatelessWidget {
             ],
           );
 
+    final BorderRadius shape = BorderRadius.circular(AppSpacing.radiusMd);
     final Widget button = Opacity(
       opacity: disabled ? 0.45 : 1,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-          gradient: colors.gradient,
-          color: colors.gradient == null ? colors.bg : null,
-          border: colors.border == null ? null : Border.all(color: colors.border!, width: 1.5),
-          // El halo solo lo lleva la acción primaria: es la que debe atraer.
-          boxShadow: !disabled && variant == AppButtonVariant.primary ? AppElevation.glow : null,
+          borderRadius: shape,
+          color: colors.bg,
+          border: colors.border == null ? null : Border.all(color: colors.border!),
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            borderRadius: shape,
             onTap: disabled ? null : onPressed,
             child: Container(
               height: height,
@@ -112,20 +112,14 @@ class AppButton extends StatelessWidget {
   _BtnColors _colorsFor(ColorScheme scheme) {
     switch (variant) {
       case AppButtonVariant.primary:
-        return _BtnColors(
-          bg: scheme.primary,
-          fg: scheme.onPrimary,
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.primaryContainer, AppColors.primary],
-          ),
-        );
+        return _BtnColors(bg: scheme.primary, fg: scheme.onPrimary);
+      case AppButtonVariant.ink:
+        return const _BtnColors(bg: AppColors.ink900, fg: AppColors.ink50);
       case AppButtonVariant.secondary:
         return _BtnColors(
           bg: Colors.transparent,
-          fg: scheme.primary,
-          border: scheme.primary.withValues(alpha: 0.4),
+          fg: scheme.onSurface,
+          border: scheme.outlineVariant,
         );
       case AppButtonVariant.ghost:
         return _BtnColors(bg: Colors.transparent, fg: scheme.onSurfaceVariant);
@@ -136,9 +130,8 @@ class AppButton extends StatelessWidget {
 }
 
 class _BtnColors {
-  const _BtnColors({required this.bg, required this.fg, this.border, this.gradient});
+  const _BtnColors({required this.bg, required this.fg, this.border});
   final Color bg;
   final Color fg;
   final Color? border;
-  final Gradient? gradient;
 }

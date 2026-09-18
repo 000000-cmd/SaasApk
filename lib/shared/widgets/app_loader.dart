@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:saas_app/app/theme/app_colors.dart';
 
-/// Indicador de carga centrado, con el morado de marca.
+/// Indicador de carga centrado, con el acento de marca.
 class AppLoader extends StatelessWidget {
   const AppLoader({super.key, this.size = 28});
   final double size;
