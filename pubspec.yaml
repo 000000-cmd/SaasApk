@@ -1,7 +1,7 @@
 name: saas_app
 description: App móvil del SaaS de gestión de locales (dueño + empleados).
 publish_to: "none"
-version: 1.0.3+4
+version: 1.0.6+7
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -32,11 +32,13 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: any
+  flutter_local_notifications: ^22.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -44,3 +46,13 @@ flutter:
   assets:
     # La mascota ORB (misma .riv que la web en public/mascot/).
     - assets/mascot/
+
+# ── Icono de la app ─────────────────────────────────────────────────────────
+# Se regenera con: dart run flutter_launcher_icons
+# El fondo adaptativo es el Midnight Navy del sistema (AppColors.ink900).
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/brand/app-icon.png"
+  adaptive_icon_background: "#131B2E"
+  adaptive_icon_foreground: "assets/brand/app-icon.png"

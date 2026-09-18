@@ -8,9 +8,14 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- Auto-actualizacion: lanzar el instalador con el APK descargado. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- Avisos en la bandeja del sistema. Obligatorio desde Android 13 (API 33):
+         sin declararlo, el permiso ni siquiera se puede pedir y las
+         notificaciones se descartan en silencio, sin error ninguno. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="saas_app"
+        android:label="Moda ERP"
         android:name="${applicationName}"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
